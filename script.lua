@@ -56,9 +56,9 @@ KeyTab:CreateButton({
             local hivePosition = Vector3.new(-42.8689, 5.1038, -324.8359)
             local convertArgs = {"ActionCall", "Anthill", workspace:WaitForChild("Anthills"):WaitForChild("1"):WaitForChild("Platform")}
             local toolArgs = {"UseTool", 1}
-            local tweenSpeed = 0.035
+            local tweenSpeed = 0.020
             local toolInterval = 0.05
-            local hiveWaitTime = 7
+            local hiveWaitTime = 10
 
             local function moveTo(pos)
                 local info = TweenInfo.new(tweenSpeed, Enum.EasingStyle.Linear)
