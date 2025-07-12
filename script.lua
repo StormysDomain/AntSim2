@@ -36,7 +36,7 @@ Players.LocalPlayer.Idled:Connect(function()
 end)
 
 --------------------------------
--- ✅ Key System
+-- ✅ Key System (EXACT LINE MATCH)
 --------------------------------
 local userKey = ""
 local validKey = false
@@ -59,8 +59,17 @@ KeyTab:CreateButton({
             return game:HttpGet("https://raw.githubusercontent.com/StormysDomain/AntSim2/main/keys.txt")
         end)
 
-        if success and response:find(userKey) then
-            validKey = true
+        validKey = false
+        if success then
+            for line in response:gmatch("[^\r\n]+") do
+                if line == userKey then
+                    validKey = true
+                    break
+                end
+            end
+        end
+
+        if validKey then
             Rayfield:Notify({
                 Title = "✅ Valid Key",
                 Content = "Access Granted.",
@@ -77,12 +86,12 @@ KeyTab:CreateButton({
 })
 
 --------------------------------
--- ✅ Shared config
+-- ✅ Shared Config
 --------------------------------
 local hivePosition = Vector3.new(-42.8689, 5.1038, -324.8359)
 local convertArgs = {"ActionCall", "Anthill", workspace:WaitForChild("Anthills"):WaitForChild("1"):WaitForChild("Platform")}
 local toolArgs = {"UseTool", 1}
-local hiveWaitTime = 5
+local hiveWaitTime = 8
 
 local tweenMultiplier = 1
 local densityMultiplier = 1
@@ -96,6 +105,9 @@ local function moveTo(pos)
     tween.Completed:Wait()
 end
 
+--------------------------------
+-- ✅ Farm Logic Factory
+--------------------------------
 local function createFieldTab(name, corners)
     local running = false
     local bagThreshold = 500000
@@ -125,7 +137,19 @@ local function createFieldTab(name, corners)
                 moveTo(hivePosition)
                 task.wait(hiveWaitTime)
                 RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-                repeat task.wait(1) pollenValue = pollen.Value until pollenValue <= 0 or not running
+
+                -- ✅ Confirm Conversion
+                local Vars = player:WaitForChild("Vars")
+                local tries = 0
+                while Vars and Vars:FindFirstChild("Converting") and not Vars.Converting.Value and tries < 10 do
+                    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+                    task.wait(1)
+                    tries += 1
+                end
+
+                repeat task.wait(1)
+                    pollenValue = pollen.Value
+                until pollenValue <= 0 or not running
             end
 
             for _, wp in ipairs(generateWaypoints()) do
@@ -208,7 +232,7 @@ createFieldTab("🍄 Mushroom Field", {
 })
 
 --------------------------------
--- ✅ Global Controls
+-- ✅ Controls
 --------------------------------
 local Controls = Window:CreateTab("⚙️ Controls", 1234567890)
 
