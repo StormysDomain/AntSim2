@@ -1,23 +1,24 @@
--- ✅ Services
+-- ✅ Load Rayfield UI
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 local RS = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
 
--- ✅ Load Rayfield UI
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "🐜 ANT KING FARMER PRO",
     LoadingTitle = "🐜 ANT KING",
-    LoadingSubtitle = "Dominating fields & bushes...",
+    LoadingSubtitle = "Dominating fields and bushes...",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = nil,
-        FileName = "AntKingFarmPro"
+        FileName = "AntKingFarm"
     },
-    Discord = { Enabled = false },
+    Discord = {
+        Enabled = false
+    },
     KeySystem = false,
 })
 
@@ -59,14 +60,15 @@ KeyTab:CreateButton({
         end)
 
         if success then
-            local valid = false
+            local keyValid = false
             for line in response:gmatch("[^\r\n]+") do
-                if userKey == line then
-                    valid = true
+                if line == userKey then
+                    keyValid = true
                     break
                 end
             end
-            if valid then
+
+            if keyValid then
                 validKey = true
                 Rayfield:Notify({
                     Title = "✅ Valid Key",
@@ -83,7 +85,7 @@ KeyTab:CreateButton({
         else
             Rayfield:Notify({
                 Title = "❌ Error",
-                Content = "Could not fetch keys.",
+                Content = "Could not fetch key list.",
                 Duration = 5
             })
         end
@@ -91,13 +93,41 @@ KeyTab:CreateButton({
 })
 
 --------------------------------
--- ✅ Shared Config
+-- ✅ Hive Detection
 --------------------------------
-local hivePosition = Vector3.new(-42.8689, 5.1038, -324.8359)
-local convertArgs = {"ActionCall", "Anthill", workspace:WaitForChild("Anthills"):WaitForChild("1"):WaitForChild("Platform")}
-local toolArgs = {"UseTool", 1}
-local hiveWaitTime = 5
+local hivePosition = nil
+local convertArgs = nil
 
+local hivePositions = {
+    [1] = Vector3.new(-42.8689, 5.1038, -324.8359),
+    [2] = Vector3.new(-2.3234851, 5.1039328, -369.5058),
+    [3] = Vector3.new(55.502813, 5.1039042, -385.0993),
+    [4] = Vector3.new(-112.2728805, 5.1038875, -367.5769),
+    [5] = Vector3.new(156.571868, 5.1039724, -329.2253),
+}
+
+local function detectHive()
+    local anthills = workspace:WaitForChild("Anthills")
+    for i = 1,5 do
+        local anthill = anthills:FindFirstChild(tostring(i))
+        if anthill then
+            local platform = anthill:FindFirstChild("Platform")
+            if platform and platform:FindFirstChild("Owner") then
+                if platform.Owner.Value == player.Name then
+                    hivePosition = hivePositions[i]
+                    convertArgs = {"ActionCall", "Anthill", platform}
+                    print("✅ Hive detected: "..i)
+                    break
+                end
+            end
+        end
+    end
+end
+
+--------------------------------
+-- ✅ Shared config
+--------------------------------
+local hiveWaitTime = 10
 local tweenMultiplier = 1
 local densityMultiplier = 1
 
@@ -110,23 +140,9 @@ local function moveTo(pos)
     tween.Completed:Wait()
 end
 
-local function convertPollen()
-    local vars = RS:FindFirstChild("Vars")
-    if not vars then return end
-
-    local converting = vars:FindFirstChild("Converting")
-    if not converting then return end
-
-    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-    task.wait(1)
-    local tries = 0
-    while not converting.Value and tries < 5 do
-        RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-        task.wait(1)
-        tries = tries + 1
-    end
-end
-
+--------------------------------
+-- ✅ FIELD FARMING
+--------------------------------
 local function createFieldTab(name, corners)
     local running = false
     local bagThreshold = 500000
@@ -154,7 +170,17 @@ local function createFieldTab(name, corners)
 
             if pollenValue >= bagThreshold then
                 moveTo(hivePosition)
-                convertPollen()
+                task.wait(hiveWaitTime)
+
+                local tries = 0
+                local converting = workspace:FindFirstChild("Vars") and workspace.Vars:FindFirstChild("Converting")
+                repeat
+                    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+                    tries += 1
+                    task.wait(1)
+                    converting = workspace:FindFirstChild("Vars") and workspace.Vars:FindFirstChild("Converting")
+                until (converting and converting.Value) or tries >= 5
+
                 repeat task.wait(1) pollenValue = pollen.Value until pollenValue <= 0 or not running
             end
 
@@ -163,7 +189,7 @@ local function createFieldTab(name, corners)
                 pollenValue = pollen.Value
                 if pollenValue >= bagThreshold then break end
                 moveTo(wp)
-                RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer(unpack(toolArgs))
+                RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
                 task.wait(0.05)
             end
         end
@@ -193,11 +219,84 @@ local function createFieldTab(name, corners)
                 })
                 return
             end
+            if not hivePosition then detectHive() end
+            if not hivePosition then
+                Rayfield:Notify({
+                    Title = "❌ Hive not found",
+                    Content = "No hive detected for your player.",
+                    Duration = 5
+                })
+                return
+            end
             running = Value
             if running then task.spawn(startFarm) end
         end,
     })
 end
+
+--------------------------------
+-- ✅ BUSH FARMING
+--------------------------------
+local bushes = {
+    Vector3.new(-7.13, 3.95, -215.69),
+    Vector3.new(-29.78, 3.95, 176.88),
+    Vector3.new(-91.32, 3.95, 227.18),
+    Vector3.new(-65.54, 27.94, 288.70),
+    Vector3.new(-70.54, 58.95, 376.26)
+}
+
+local bushHitTime = 5
+local bushRunning = false
+
+local function BushFarm()
+    while bushRunning and validKey do
+        for _, bushPos in ipairs(bushes) do
+            moveTo(bushPos)
+            local t = tick()
+            while tick() - t < bushHitTime and bushRunning do
+                RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
+                task.wait(0.2)
+            end
+
+            local radius = 4
+            for angle = 0, 360, 45 do
+                local rad = math.rad(angle)
+                local offset = Vector3.new(math.cos(rad) * radius, 0, math.sin(rad) * radius)
+                moveTo(bushPos + offset)
+                task.wait(0.1)
+            end
+        end
+    end
+end
+
+local BushTab = Window:CreateTab("🌿 Bush Farm", 1234567890)
+
+BushTab:CreateInput({
+    Name = "Bush Hit Time (sec)",
+    PlaceholderText = tostring(bushHitTime),
+    RemoveTextAfterFocusLost = true,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then bushHitTime = num end
+    end,
+})
+
+BushTab:CreateToggle({
+    Name = "Toggle Bush Farming",
+    CurrentValue = false,
+    Callback = function(Value)
+        if not validKey then
+            Rayfield:Notify({
+                Title = "🔒 Key Required",
+                Content = "Submit a valid key first.",
+                Duration = 5
+            })
+            return
+        end
+        bushRunning = Value
+        if bushRunning then task.spawn(BushFarm) end
+    end,
+})
 
 --------------------------------
 -- ✅ Fields
@@ -235,81 +334,6 @@ createFieldTab("🍄 Mushroom Field", {
     Vector3.new(73.0142, 3.95, -1.2952),
     Vector3.new(73.7536, 3.95, 51.0374),
     Vector3.new(12.2008, 3.95, 51.6056),
-})
-
---------------------------------
--- ✅ Bush Farming
---------------------------------
-local BushTab = Window:CreateTab("🌿 Bush Farming", 1234567890)
-
-local Bushes = {
-    Vector3.new(-7.1365, 3.95, -215.6981),
-    Vector3.new(-29.7815, 3.95, 176.8898),
-    Vector3.new(-91.3279, 3.95, 227.1879),
-    Vector3.new(-65.5496, 27.9499, 288.7011),
-    Vector3.new(-70.5467, 58.9499, 376.2639)
-}
-
-local bushRunning = false
-local bushHitTime = 5
-local bushToolInterval = 0.2
-
-local function autoHitBush(duration)
-    local start = tick()
-    while tick() - start < duration do
-        RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
-        task.wait(bushToolInterval)
-    end
-end
-
-local function collectAroundBush(center)
-    local radius = 4
-    local grid = 3
-    for x = -radius, radius, radius * 2 / grid do
-        for z = -radius, radius, radius * 2 / grid do
-            local pos = center + Vector3.new(x, 0, z)
-            moveTo(pos)
-            task.wait(0.1)
-        end
-    end
-end
-
-local function startBushFarm()
-    while bushRunning and validKey do
-        for _, bush in ipairs(Bushes) do
-            if not bushRunning then return end
-            moveTo(bush)
-            autoHitBush(bushHitTime)
-            collectAroundBush(bush)
-        end
-    end
-end
-
-BushTab:CreateInput({
-    Name = "Bush Hit Time (seconds)",
-    PlaceholderText = tostring(bushHitTime),
-    RemoveTextAfterFocusLost = true,
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then bushHitTime = num end
-    end,
-})
-
-BushTab:CreateToggle({
-    Name = "Toggle Bush Farming",
-    CurrentValue = false,
-    Callback = function(Value)
-        if not validKey then
-            Rayfield:Notify({
-                Title = "🔒 Key Required",
-                Content = "Submit a valid key first.",
-                Duration = 5
-            })
-            return
-        end
-        bushRunning = Value
-        if bushRunning then task.spawn(startBushFarm) end
-    end,
 })
 
 --------------------------------
