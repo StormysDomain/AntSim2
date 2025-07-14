@@ -127,7 +127,7 @@ end
 --------------------------------
 -- ✅ Shared config
 --------------------------------
-local hiveWaitTime = 10
+local hiveWaitTime = 8
 local tweenMultiplier = 1
 local densityMultiplier = 1
 
@@ -140,8 +140,26 @@ local function moveTo(pos)
     tween.Completed:Wait()
 end
 
+local function convertPollen()
+    moveTo(hivePosition)
+    task.wait(hiveWaitTime)
+
+    local Vars = workspace:FindFirstChild("Vars")
+    local converting = Vars and Vars:FindFirstChild("Converting")
+    local tries = 0
+
+    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+    task.wait(1)
+
+    while converting and not converting.Value and tries < 5 do
+        RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+        tries += 1
+        task.wait(1)
+    end
+end
+
 --------------------------------
--- ✅ FIELD FARMING
+-- ✅ FIELD FARMING (Fixed)
 --------------------------------
 local function createFieldTab(name, corners)
     local running = false
@@ -163,35 +181,28 @@ local function createFieldTab(name, corners)
         return wp
     end
 
-    local function startFarm()
+    local function loopFarm()
+        local pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
+
         while running and validKey do
-            local pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
-            local pollenValue = pollen and pollen.Value or 0
-
-            if pollenValue >= bagThreshold then
-                moveTo(hivePosition)
-                task.wait(hiveWaitTime)
-
-                local tries = 0
-                local converting = workspace:FindFirstChild("Vars") and workspace.Vars:FindFirstChild("Converting")
-                repeat
-                    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-                    tries += 1
+            pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
+            if pollen.Value >= bagThreshold then
+                convertPollen()
+                while pollen.Value > 0 and running do
                     task.wait(1)
-                    converting = workspace:FindFirstChild("Vars") and workspace.Vars:FindFirstChild("Converting")
-                until (converting and converting.Value) or tries >= 5
-
-                repeat task.wait(1) pollenValue = pollen.Value until pollenValue <= 0 or not running
+                    pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
+                end
+            else
+                for _, wp in ipairs(generateWaypoints()) do
+                    if not running then return end
+                    pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
+                    if pollen.Value >= bagThreshold then break end
+                    moveTo(wp)
+                    RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
+                    task.wait(0.05)
+                end
             end
-
-            for _, wp in ipairs(generateWaypoints()) do
-                if not running then return end
-                pollenValue = pollen.Value
-                if pollenValue >= bagThreshold then break end
-                moveTo(wp)
-                RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
-                task.wait(0.05)
-            end
+            task.wait(0.1)
         end
     end
 
@@ -229,29 +240,40 @@ local function createFieldTab(name, corners)
                 return
             end
             running = Value
-            if running then task.spawn(startFarm) end
+            if running then
+                task.spawn(loopFarm)
+            end
         end,
     })
 end
 
 --------------------------------
--- ✅ BUSH FARMING
+-- ✅ BUSH FARMING (SAFE)
 --------------------------------
 local bushes = {
     Vector3.new(-7.13, 3.95, -215.69),
     Vector3.new(-29.78, 3.95, 176.88),
-    Vector3.new(-91.32, 3.95, 227.18),
-    Vector3.new(-65.54, 27.94, 288.70),
-    Vector3.new(-70.54, 58.95, 376.26)
+    Vector3.new(-91.32, 3.95, 227.18)
 }
 
 local bushHitTime = 5
 local bushRunning = false
 
+local function safeMoveTo(pos)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    -- Always keep height safe
+    local safePos = Vector3.new(pos.X, math.max(pos.Y, 5), pos.Z)
+    local info = TweenInfo.new(0.04 * (1 / tweenMultiplier), Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, info, {CFrame = CFrame.new(safePos)})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
 local function BushFarm()
     while bushRunning and validKey do
         for _, bushPos in ipairs(bushes) do
-            moveTo(bushPos)
+            safeMoveTo(bushPos)
             local t = tick()
             while tick() - t < bushHitTime and bushRunning do
                 RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
@@ -262,7 +284,7 @@ local function BushFarm()
             for angle = 0, 360, 45 do
                 local rad = math.rad(angle)
                 local offset = Vector3.new(math.cos(rad) * radius, 0, math.sin(rad) * radius)
-                moveTo(bushPos + offset)
+                safeMoveTo(bushPos + offset)
                 task.wait(0.1)
             end
         end
