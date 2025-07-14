@@ -1,24 +1,23 @@
--- ✅ Load Rayfield UI
+-- ✅ Services
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 local RS = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
 
+-- ✅ Load Rayfield UI
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "🐜 ANT KING FARMER PRO",
     LoadingTitle = "🐜 ANT KING",
-    LoadingSubtitle = "Dominating fields...",
+    LoadingSubtitle = "Dominating fields & bushes...",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = nil,
-        FileName = "AntKingFarm"
+        FileName = "AntKingFarmPro"
     },
-    Discord = {
-        Enabled = false
-    },
+    Discord = { Enabled = false },
     KeySystem = false,
 })
 
@@ -36,7 +35,7 @@ Players.LocalPlayer.Idled:Connect(function()
 end)
 
 --------------------------------
--- ✅ Key System (EXACT LINE MATCH)
+-- ✅ Key System
 --------------------------------
 local userKey = ""
 local validKey = false
@@ -59,26 +58,32 @@ KeyTab:CreateButton({
             return game:HttpGet("https://raw.githubusercontent.com/StormysDomain/AntSim2/main/keys.txt")
         end)
 
-        validKey = false
         if success then
+            local valid = false
             for line in response:gmatch("[^\r\n]+") do
-                if line == userKey then
-                    validKey = true
+                if userKey == line then
+                    valid = true
                     break
                 end
             end
-        end
-
-        if validKey then
-            Rayfield:Notify({
-                Title = "✅ Valid Key",
-                Content = "Access Granted.",
-                Duration = 5
-            })
+            if valid then
+                validKey = true
+                Rayfield:Notify({
+                    Title = "✅ Valid Key",
+                    Content = "Access Granted.",
+                    Duration = 5
+                })
+            else
+                Rayfield:Notify({
+                    Title = "❌ Invalid Key",
+                    Content = "Key not valid.",
+                    Duration = 5
+                })
+            end
         else
             Rayfield:Notify({
-                Title = "❌ Invalid Key",
-                Content = "Key not valid.",
+                Title = "❌ Error",
+                Content = "Could not fetch keys.",
                 Duration = 5
             })
         end
@@ -91,7 +96,7 @@ KeyTab:CreateButton({
 local hivePosition = Vector3.new(-42.8689, 5.1038, -324.8359)
 local convertArgs = {"ActionCall", "Anthill", workspace:WaitForChild("Anthills"):WaitForChild("1"):WaitForChild("Platform")}
 local toolArgs = {"UseTool", 1}
-local hiveWaitTime = 8
+local hiveWaitTime = 5
 
 local tweenMultiplier = 1
 local densityMultiplier = 1
@@ -105,9 +110,23 @@ local function moveTo(pos)
     tween.Completed:Wait()
 end
 
---------------------------------
--- ✅ Farm Logic Factory
---------------------------------
+local function convertPollen()
+    local vars = RS:FindFirstChild("Vars")
+    if not vars then return end
+
+    local converting = vars:FindFirstChild("Converting")
+    if not converting then return end
+
+    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+    task.wait(1)
+    local tries = 0
+    while not converting.Value and tries < 5 do
+        RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
+        task.wait(1)
+        tries = tries + 1
+    end
+end
+
 local function createFieldTab(name, corners)
     local running = false
     local bagThreshold = 500000
@@ -135,21 +154,8 @@ local function createFieldTab(name, corners)
 
             if pollenValue >= bagThreshold then
                 moveTo(hivePosition)
-                task.wait(hiveWaitTime)
-                RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-
-                -- ✅ Confirm Conversion
-                local Vars = player:WaitForChild("Vars")
-                local tries = 0
-                while Vars and Vars:FindFirstChild("Converting") and not Vars.Converting.Value and tries < 10 do
-                    RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
-                    task.wait(1)
-                    tries += 1
-                end
-
-                repeat task.wait(1)
-                    pollenValue = pollen.Value
-                until pollenValue <= 0 or not running
+                convertPollen()
+                repeat task.wait(1) pollenValue = pollen.Value until pollenValue <= 0 or not running
             end
 
             for _, wp in ipairs(generateWaypoints()) do
@@ -232,7 +238,82 @@ createFieldTab("🍄 Mushroom Field", {
 })
 
 --------------------------------
--- ✅ Controls
+-- ✅ Bush Farming
+--------------------------------
+local BushTab = Window:CreateTab("🌿 Bush Farming", 1234567890)
+
+local Bushes = {
+    Vector3.new(-7.1365, 3.95, -215.6981),
+    Vector3.new(-29.7815, 3.95, 176.8898),
+    Vector3.new(-91.3279, 3.95, 227.1879),
+    Vector3.new(-65.5496, 27.9499, 288.7011),
+    Vector3.new(-70.5467, 58.9499, 376.2639)
+}
+
+local bushRunning = false
+local bushHitTime = 5
+local bushToolInterval = 0.2
+
+local function autoHitBush(duration)
+    local start = tick()
+    while tick() - start < duration do
+        RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
+        task.wait(bushToolInterval)
+    end
+end
+
+local function collectAroundBush(center)
+    local radius = 4
+    local grid = 3
+    for x = -radius, radius, radius * 2 / grid do
+        for z = -radius, radius, radius * 2 / grid do
+            local pos = center + Vector3.new(x, 0, z)
+            moveTo(pos)
+            task.wait(0.1)
+        end
+    end
+end
+
+local function startBushFarm()
+    while bushRunning and validKey do
+        for _, bush in ipairs(Bushes) do
+            if not bushRunning then return end
+            moveTo(bush)
+            autoHitBush(bushHitTime)
+            collectAroundBush(bush)
+        end
+    end
+end
+
+BushTab:CreateInput({
+    Name = "Bush Hit Time (seconds)",
+    PlaceholderText = tostring(bushHitTime),
+    RemoveTextAfterFocusLost = true,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then bushHitTime = num end
+    end,
+})
+
+BushTab:CreateToggle({
+    Name = "Toggle Bush Farming",
+    CurrentValue = false,
+    Callback = function(Value)
+        if not validKey then
+            Rayfield:Notify({
+                Title = "🔒 Key Required",
+                Content = "Submit a valid key first.",
+                Duration = 5
+            })
+            return
+        end
+        bushRunning = Value
+        if bushRunning then task.spawn(startBushFarm) end
+    end,
+})
+
+--------------------------------
+-- ✅ Global Controls
 --------------------------------
 local Controls = Window:CreateTab("⚙️ Controls", 1234567890)
 
