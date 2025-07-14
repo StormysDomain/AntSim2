@@ -337,12 +337,6 @@ createFieldTab("🌲 Cedar Field", {
     Vector3.new(427.0260, 246.4489, 567.0328),
 })
 
-createFieldTab("🌹 Rose Field", {
-    Vector3.new(431.2232, 246.4489, 512.6610),
-    Vector3.new(497.1391, 246.4489, 514.7206),
-    Vector3.new(499.6319, 246.4489, 664.9557),
-    Vector3.new(428.8901, 246.4489, 656.9597),
-})
 
 createFieldTab("🌼 Dandelion Field", {
     Vector3.new(-38.9106, 3.95, -202.7858),
