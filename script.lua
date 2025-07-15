@@ -403,3 +403,8 @@ Controls:CreateToggle({
         antiAfk = Value
     end,
 })
+
+Controls:CreateParagraph({
+    Title = "⚠️ Notice",
+    Content = "Make sure to click into Roblox so the auto convert and macro works properly!"
+})
