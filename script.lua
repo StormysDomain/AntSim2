@@ -355,6 +355,22 @@ createFieldTab("🍄 Mushroom Field", {
     Vector3.new(12.2008, 3.95, 51.6056),
 })
 
+createFieldTab("🔵 Blue Flower Field", {
+    Vector3.new(-230.0941, 3.95, 196.2644),
+    Vector3.new(-230.5790, 3.95, 269.0285),
+    Vector3.new(-283.4212, 3.95, 270.2152),
+    Vector3.new(-284.6819, 3.95, 197.2568),
+})
+
+createFieldTab("🎍 Bamboo Field", {
+    Vector3.new(-206.9211, 91.8234, 496.4200),
+    Vector3.new(-137.6663, 91.0871, 497.1348),
+    Vector3.new(-137.7168, 90.8236, 575.4165),
+    Vector3.new(-209.6989, 90.8236, 575.1451),
+})
+
+
+
 --------------------------------
 -- ✅ Global Controls
 --------------------------------
