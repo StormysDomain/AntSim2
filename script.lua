@@ -16,15 +16,11 @@ local Window = Rayfield:CreateWindow({
         FolderName = nil,
         FileName = "AntKingFarm"
     },
-    Discord = {
-        Enabled = false
-    },
+    Discord = { Enabled = false },
     KeySystem = false,
 })
 
---------------------------------
 -- ✅ Anti AFK
---------------------------------
 local antiAfk = true
 Players.LocalPlayer.Idled:Connect(function()
     if antiAfk then
@@ -35,21 +31,15 @@ Players.LocalPlayer.Idled:Connect(function()
     end
 end)
 
---------------------------------
 -- ✅ Key System
---------------------------------
-local userKey = ""
-local validKey = false
-
+local userKey, validKey = "", false
 local KeyTab = Window:CreateTab("🔑 Key System", 1234567890)
 
 KeyTab:CreateInput({
     Name = "Enter Your Key",
     PlaceholderText = "XXXXXXXXXX",
     RemoveTextAfterFocusLost = false,
-    Callback = function(Value)
-        userKey = Value
-    end,
+    Callback = function(Value) userKey = Value end,
 })
 
 KeyTab:CreateButton({
@@ -58,46 +48,23 @@ KeyTab:CreateButton({
         local success, response = pcall(function()
             return game:HttpGet("https://raw.githubusercontent.com/StormysDomain/AntSim2/main/keys.txt")
         end)
-
         if success then
-            local keyValid = false
             for line in response:gmatch("[^\r\n]+") do
                 if line == userKey then
-                    keyValid = true
-                    break
+                    validKey = true
+                    Rayfield:Notify({ Title = "✅ Valid Key", Content = "Access Granted.", Duration = 5 })
+                    return
                 end
             end
-
-            if keyValid then
-                validKey = true
-                Rayfield:Notify({
-                    Title = "✅ Valid Key",
-                    Content = "Access Granted.",
-                    Duration = 5
-                })
-            else
-                Rayfield:Notify({
-                    Title = "❌ Invalid Key",
-                    Content = "Key not valid.",
-                    Duration = 5
-                })
-            end
+            Rayfield:Notify({ Title = "❌ Invalid Key", Content = "Key not valid.", Duration = 5 })
         else
-            Rayfield:Notify({
-                Title = "❌ Error",
-                Content = "Could not fetch key list.",
-                Duration = 5
-            })
+            Rayfield:Notify({ Title = "❌ Error", Content = "Could not fetch key list.", Duration = 5 })
         end
     end,
 })
 
---------------------------------
 -- ✅ Hive Detection
---------------------------------
-local hivePosition = nil
-local convertArgs = nil
-
+local hivePosition, convertArgs = nil, nil
 local hivePositions = {
     [1] = Vector3.new(-42.8689, 5.1038, -324.8359),
     [2] = Vector3.new(-2.3234851, 5.1039328, -369.5058),
@@ -110,26 +77,18 @@ local function detectHive()
     local anthills = workspace:WaitForChild("Anthills")
     for i = 1,5 do
         local anthill = anthills:FindFirstChild(tostring(i))
-        if anthill then
-            local platform = anthill:FindFirstChild("Platform")
-            if platform and platform:FindFirstChild("Owner") then
-                if platform.Owner.Value == player.Name then
-                    hivePosition = hivePositions[i]
-                    convertArgs = {"ActionCall", "Anthill", platform}
-                    print("✅ Hive detected: "..i)
-                    break
-                end
-            end
+        local platform = anthill and anthill:FindFirstChild("Platform")
+        if platform and platform:FindFirstChild("Owner") and platform.Owner.Value == player.Name then
+            hivePosition = hivePositions[i]
+            convertArgs = {"ActionCall", "Anthill", platform}
+            print("✅ Hive detected: "..i)
+            return
         end
     end
 end
 
---------------------------------
--- ✅ Shared config
---------------------------------
-local hiveWaitTime = 8
-local tweenMultiplier = 1
-local densityMultiplier = 1
+-- ✅ Shared Config
+local hiveWaitTime, tweenMultiplier, densityMultiplier = 8, 1, 1
 
 local function moveTo(pos)
     local char = player.Character or player.CharacterAdded:Wait()
@@ -148,6 +107,7 @@ local function convertPollen()
     local converting = Vars and Vars:FindFirstChild("Converting")
     local tries = 0
 
+    -- Always attempt conversion when called
     RS:WaitForChild("Events"):WaitForChild("Server_Function"):InvokeServer(unpack(convertArgs))
     task.wait(1)
 
@@ -158,24 +118,18 @@ local function convertPollen()
     end
 end
 
---------------------------------
--- ✅ FIELD FARMING (Fixed)
---------------------------------
+-- ✅ Field Farming (Stable)
 local function createFieldTab(name, corners)
-    local running = false
-    local bagThreshold = 500000
+    local running, bagThreshold = false, 500000
+    local shouldConvert = false
 
     local function generateWaypoints()
-        local wp = {}
-        local rows = math.max(1, math.floor(5 * densityMultiplier))
-        local cols = math.max(1, math.floor(6 * densityMultiplier))
+        local wp, rows, cols = {}, math.max(1, math.floor(5 * densityMultiplier)), math.max(1, math.floor(6 * densityMultiplier))
         for i = 0, rows do
-            local t = i / rows
-            local left = corners[1]:Lerp(corners[4], t)
-            local right = corners[2]:Lerp(corners[3], t)
+            local left = corners[1]:Lerp(corners[4], i / rows)
+            local right = corners[2]:Lerp(corners[3], i / rows)
             for j = 0, cols do
-                local s = j / cols
-                table.insert(wp, left:Lerp(right, s))
+                table.insert(wp, left:Lerp(right, j / cols))
             end
         end
         return wp
@@ -186,8 +140,14 @@ local function createFieldTab(name, corners)
 
         while running and validKey do
             pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
+
             if pollen.Value >= bagThreshold then
+                shouldConvert = true
+            end
+
+            if shouldConvert then
                 convertPollen()
+                shouldConvert = false
                 while pollen.Value > 0 and running do
                     task.wait(1)
                     pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
@@ -196,7 +156,10 @@ local function createFieldTab(name, corners)
                 for _, wp in ipairs(generateWaypoints()) do
                     if not running then return end
                     pollen = player:WaitForChild("Leaderstats"):FindFirstChild("Pollen")
-                    if pollen.Value >= bagThreshold then break end
+                    if pollen.Value >= bagThreshold then
+                        shouldConvert = true
+                        break
+                    end
                     moveTo(wp)
                     RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
                     task.wait(0.05)
@@ -223,33 +186,21 @@ local function createFieldTab(name, corners)
         CurrentValue = false,
         Callback = function(Value)
             if not validKey then
-                Rayfield:Notify({
-                    Title = "🔒 Key Required",
-                    Content = "Submit a valid key first.",
-                    Duration = 5
-                })
+                Rayfield:Notify({ Title = "🔒 Key Required", Content = "Submit a valid key first.", Duration = 5 })
                 return
             end
             if not hivePosition then detectHive() end
             if not hivePosition then
-                Rayfield:Notify({
-                    Title = "❌ Hive not found",
-                    Content = "No hive detected for your player.",
-                    Duration = 5
-                })
+                Rayfield:Notify({ Title = "❌ Hive not found", Content = "No hive detected for your player.", Duration = 5 })
                 return
             end
             running = Value
-            if running then
-                task.spawn(loopFarm)
-            end
+            if running then task.spawn(loopFarm) end
         end,
     })
 end
 
---------------------------------
--- ✅ BUSH FARMING (SAFE)
---------------------------------
+-- ✅ Bush Farming
 local bushes = {
     Vector3.new(-5.4815, 3.95, -215.5573),
     Vector3.new(-65.5382, 27.9499, 289.5440),
@@ -259,16 +210,13 @@ local bushes = {
     Vector3.new(165.9558, 92.5978, 541.1715)
 }
 
-local bushHitTime = 5
-local bushRunning = false
+local bushHitTime, bushRunning = 5, false
 
 local function safeMoveTo(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart")
-    -- Always keep height safe
     local safePos = Vector3.new(pos.X, math.max(pos.Y, 5), pos.Z)
-    local info = TweenInfo.new(0.04 * (1 / tweenMultiplier), Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, info, {CFrame = CFrame.new(safePos)})
+    local tween = TweenService:Create(hrp, TweenInfo.new(0.04 * (1 / tweenMultiplier), Enum.EasingStyle.Linear), {CFrame = CFrame.new(safePos)})
     tween:Play()
     tween.Completed:Wait()
 end
@@ -282,11 +230,8 @@ local function BushFarm()
                 RS:WaitForChild("Events"):WaitForChild("Server_Event"):FireServer("UseTool", 1)
                 task.wait(0.2)
             end
-
-            local radius = 4
             for angle = 0, 360, 45 do
-                local rad = math.rad(angle)
-                local offset = Vector3.new(math.cos(rad) * radius, 0, math.sin(rad) * radius)
+                local offset = Vector3.new(math.cos(math.rad(angle)) * 4, 0, math.sin(math.rad(angle)) * 4)
                 safeMoveTo(bushPos + offset)
                 task.wait(0.1)
             end
@@ -311,11 +256,7 @@ BushTab:CreateToggle({
     CurrentValue = false,
     Callback = function(Value)
         if not validKey then
-            Rayfield:Notify({
-                Title = "🔒 Key Required",
-                Content = "Submit a valid key first.",
-                Duration = 5
-            })
+            Rayfield:Notify({ Title = "🔒 Key Required", Content = "Submit a valid key first.", Duration = 5 })
             return
         end
         bushRunning = Value
@@ -323,9 +264,7 @@ BushTab:CreateToggle({
     end,
 })
 
---------------------------------
--- ✅ Fields
---------------------------------
+-- ✅ Add Fields
 createFieldTab("🌾 Top Field", {
     Vector3.new(-56.7527, 364.4479, 1000.4171),
     Vector3.new(-83.5665, 364.4479, 1075.5822),
@@ -339,7 +278,6 @@ createFieldTab("🌲 Cedar Field", {
     Vector3.new(502.7247, 246.4489, 567.5714),
     Vector3.new(427.0260, 246.4489, 567.0328),
 })
-
 
 createFieldTab("🌼 Dandelion Field", {
     Vector3.new(-38.9106, 3.95, -202.7858),
@@ -369,11 +307,7 @@ createFieldTab("🎍 Bamboo Field", {
     Vector3.new(-209.6989, 90.8236, 575.1451),
 })
 
-
-
---------------------------------
--- ✅ Global Controls
---------------------------------
+-- ✅ Controls Tab
 local Controls = Window:CreateTab("⚙️ Controls", 1234567890)
 
 Controls:CreateSlider({
@@ -381,9 +315,7 @@ Controls:CreateSlider({
     Range = {0.5, 5},
     Increment = 0.1,
     CurrentValue = tweenMultiplier,
-    Callback = function(Value)
-        tweenMultiplier = Value
-    end,
+    Callback = function(Value) tweenMultiplier = Value end,
 })
 
 Controls:CreateSlider({
@@ -391,17 +323,13 @@ Controls:CreateSlider({
     Range = {0.5, 5},
     Increment = 0.1,
     CurrentValue = densityMultiplier,
-    Callback = function(Value)
-        densityMultiplier = Value
-    end,
+    Callback = function(Value) densityMultiplier = Value end,
 })
 
 Controls:CreateToggle({
     Name = "Anti AFK",
     CurrentValue = antiAfk,
-    Callback = function(Value)
-        antiAfk = Value
-    end,
+    Callback = function(Value) antiAfk = Value end,
 })
 
 Controls:CreateParagraph({
